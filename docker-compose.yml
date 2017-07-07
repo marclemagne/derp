@@ -1,0 +1,39 @@
+version: "2"
+
+services:
+  db:
+    image: postgres
+    restart: "always"
+    environment: 
+      - POSTGRES_PASSWORD=mysecretpassword
+    volumes:
+      - ./db/init-database.sh:/docker-entrypoint-initdb.d/init-database.sh
+      - ./postgres-data:/var/lib/postgresql/data
+  server:
+    image: node
+    links: 
+      - db
+    depends_on:
+      - db
+    volumes:
+      - .:/usr/local/app
+    working_dir: /usr/local/app
+    entrypoint: ./scripts/wait-for-it.sh db:5432 -- /usr/local/app/scripts/server-entrypoint.sh
+    environment:
+      - PGHOST=db
+      - PGDATABASE=postgres
+      - PGUSER=postgres
+      - PGPASSWORD=mysecretpassword
+    ports:
+      - "3001:3001"
+  client:
+    image: node
+    depends_on:
+      - server
+      - db
+    volumes:
+      - .:/usr/local/app
+    working_dir: /usr/local/app
+    entrypoint: ./scripts/wait-for-it.sh server:3001 -- /usr/local/app/scripts/client-entrypoint.sh
+    ports:
+      - "3000:3000"
